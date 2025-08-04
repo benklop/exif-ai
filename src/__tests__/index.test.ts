@@ -6,6 +6,7 @@ import {
   expect,
   vi,
   afterAll,
+  beforeAll,
 } from "vitest";
 import { execute } from "../index.js";
 import { exiftool } from "exiftool-vendored";
@@ -39,8 +40,12 @@ describe("Image Processing Tests", () => {
     writeArgs: [],
     providerArgs: [],
     skip: false,
-    doNotEndExifTool: true,
   };
+
+  beforeAll(async () => {
+    // Clean up any existing ExifTool instances - but only if they're already ended
+    // Don't call end() here as it will kill the process before tests run
+  });
 
   beforeEach(async () => {
     i++;
@@ -80,15 +85,15 @@ describe("Image Processing Tests", () => {
 
     await execute({
       ...baseOptions,
-      descriptionPrompt: "Describe",
+      descriptionPrompt: "Describe this test image in detail",
     });
 
     // Verify the existing tag is not overwritten
     const descriptionTags = await exiftool.read(resolvedPath);
-    expect(descriptionTags.XPComment).to.equal("Describe");
-    expect(descriptionTags.Description).to.equal("Describe");
-    expect(descriptionTags.ImageDescription).to.equal("Describe");
-    expect(descriptionTags["Caption-Abstract"]).to.equal("Describe");
+    expect(descriptionTags.XPComment).to.equal("Describe this test image in detail");
+    expect(descriptionTags.Description).to.equal("Describe this test image in detail");
+    expect(descriptionTags.ImageDescription).to.equal("Describe this test image in detail");
+    expect(descriptionTags["Caption-Abstract"]).to.equal("Describe this test image in detail");
 
     expect(existsSync(`${resolvedPath}_original`)).toBe(true);
   });
@@ -200,11 +205,21 @@ describe("Image Processing Tests", () => {
   afterEach(async () => {
     const resolvedPath = path.resolve(baseOptions.path);
 
-    await deleteAsync(["./src/__tests__/*original"]);
-    await fsPromises.unlink(resolvedPath);
+    try {
+      await deleteAsync(["./src/__tests__/*original"]);
+      if (existsSync(resolvedPath)) {
+        await fsPromises.unlink(resolvedPath);
+      }
+    } catch (error) {
+      console.warn("Cleanup error:", error);
+    }
   });
 
   afterAll(async () => {
-    await exiftool.end();
+    try {
+      await exiftool.end();
+    } catch (error) {
+      console.warn("ExifTool cleanup error:", error);
+    }
   });
 });

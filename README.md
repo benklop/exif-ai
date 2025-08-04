@@ -7,9 +7,6 @@
 
 https://github.com/user-attachments/assets/a445d46a-0d3c-44a2-a42e-f98c23e9c1b4
 
-_Read this in other languages:_
-[_简体中文_](README.zh-CN.md)
-
 ## About
 
 _Exif AI_ is a powerful CLI tool and library designed to write AI-generated image descriptions and/or tags directly into the metadata of image files. This tool leverages advanced AI models from multiple providers to analyze image content and generate descriptive metadata, enhancing the accessibility and searchability of your images.
