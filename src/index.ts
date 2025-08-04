@@ -9,13 +9,6 @@ import xhr2 from "xhr2";
 // Export the new improved API
 export * from "./api.js";
 
-import fetch, {
-  Headers,
-  Request,
-  Response,
-  RequestInit,
-  RequestInfo,
-} from "node-fetch";
 import { DescriptionKey, getDescription } from "./tasks/description.js";
 import { getTags, TagKey } from "./tasks/tags.js";
 import { HttpsProxyAgent } from "https-proxy-agent";
@@ -27,7 +20,7 @@ if (
   Boolean(env.http_proxy) ||
   Boolean(env.HTTP_PROXY)
 ) {
-  // @ts-expect-error - Polyfilling fetch for proxy support
+  const originalFetch = globalThis.fetch;
   globalThis.fetch = function (
     url: URL | RequestInfo,
     init?: RequestInit,
@@ -44,14 +37,8 @@ if (
       agentObject = { agent: new HttpsProxyAgent(env.HTTP_PROXY) };
     }
 
-    return fetch(url, agentObject ? { ...init, ...agentObject } : init);
+    return originalFetch(url, agentObject ? { ...init, ...agentObject } : init);
   };
-  // @ts-expect-error - Polyfilling Headers
-  globalThis.Headers = Headers;
-  // @ts-expect-error - Polyfilling Request
-  globalThis.Request = Request;
-  // @ts-expect-error - Polyfilling Response
-  globalThis.Response = Response;
 }
 
 // Set XMLHttpRequest for environments that don't have it
