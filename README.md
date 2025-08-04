@@ -164,6 +164,152 @@ await execute({
 });
 ```
 
+### API Server
+
+Exif AI includes a built-in HTTP API server for easy integration with web applications and services.
+
+#### Starting the Server
+
+```bash
+# Using npm scripts
+npm run server
+
+# Using built files directly
+node dist/server.js
+
+# Development mode (builds and runs)
+npm run server:dev
+```
+
+#### Server Configuration
+
+Configure the server using environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `3000` |
+| `EXIF_AI_PROVIDER` | AI provider | `ollama` |
+| `EXIF_AI_MODEL` | AI model | Provider default |
+| `EXIF_AI_DESCRIPTION_PROMPT` | Custom description prompt | Built-in prompt |
+| `EXIF_AI_TAG_PROMPT` | Custom tag prompt | Built-in prompt |
+| `EXIF_AI_TASKS` | Comma-separated tasks | `description,tag` |
+| `EXIF_AI_VERBOSE` | Enable verbose logging | `false` |
+
+#### API Endpoints
+
+**Health Check**
+```bash
+GET /health
+```
+
+Returns server status and configuration:
+```json
+{
+  "status": "healthy",
+  "provider": "ollama",
+  "model": "default",
+  "tasks": ["description", "tag"]
+}
+```
+
+**Process Image**
+```bash
+POST /process
+Content-Type: multipart/form-data
+```
+
+Upload an image and get AI-generated description and tags:
+
+**Request:**
+- `image` (file, required): Image file to process
+- `provider` (string, optional): Override AI provider
+- `model` (string, optional): Override AI model
+- `tasks` (string, optional): Comma-separated tasks (e.g., "description,tag")
+- `descriptionPrompt` (string, optional): Custom description prompt
+- `tagPrompt` (string, optional): Custom tag prompt
+
+**Response:**
+```json
+{
+  "success": true,
+  "description": "A beautiful landscape with mountains and trees",
+  "tags": ["landscape", "mountains", "trees", "nature"],
+  "provider": "ollama",
+  "model": "llama3.2-vision",
+  "tasks": ["description", "tag"]
+}
+```
+
+#### Example Usage
+
+**Using curl:**
+```bash
+# Basic usage
+curl -X POST http://localhost:3000/process \
+  -F "image=@photo.jpg"
+
+# With custom configuration
+curl -X POST http://localhost:3000/process \
+  -F "image=@photo.jpg" \
+  -F "provider=openai" \
+  -F "model=gpt-4o" \
+  -F "tasks=description"
+```
+
+**Using JavaScript/Node.js:**
+```javascript
+const FormData = require('form-data');
+const fs = require('fs');
+const fetch = require('node-fetch');
+
+const formData = new FormData();
+formData.append('image', fs.createReadStream('photo.jpg'));
+formData.append('provider', 'ollama');
+formData.append('tasks', 'description,tag');
+
+fetch('http://localhost:3000/process', {
+  method: 'POST',
+  body: formData
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+**Using Python:**
+```python
+import requests
+
+with open('photo.jpg', 'rb') as f:
+    files = {'image': f}
+    data = {
+        'provider': 'ollama',
+        'tasks': 'description,tag'
+    }
+    response = requests.post('http://localhost:3000/process', files=files, data=data)
+    print(response.json())
+```
+
+#### Docker Usage
+
+You can also run the server in a Docker container:
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "run", "server"]
+```
+
+```bash
+# Build and run
+docker build -t exif-ai-server .
+docker run -p 3000:3000 -e EXIF_AI_PROVIDER=ollama exif-ai-server
+```
+
 ## API Design Benefits
 
 The new API design provides several improvements:
