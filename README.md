@@ -1,11 +1,11 @@
 # Exif AI
 
 [![NPM Downloads](https://img.shields.io/npm/dw/exif-ai)](https://www.npmjs.com/package/exif-ai)
+[![CI/CD Pipeline](https://github.com/benklop/exif-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/benklop/exif-ai/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/benklop/exif-ai/actions/workflows/docker-build.yml/badge.svg)](https://github.com/benklop/exif-ai/actions/workflows/docker-build.yml)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io%2Fbenklop%2Fexif--ai-blue)](https://ghcr.io/benklop/exif-ai)
 
 https://github.com/user-attachments/assets/a445d46a-0d3c-44a2-a42e-f98c23e9c1b4
-
-_Read this in other languages:_
-[_简体中文_](README.zh-CN.md)
 
 ## About
 
@@ -14,6 +14,18 @@ _Exif AI_ is a powerful CLI tool and library designed to write AI-generated imag
 Built with the [Vercel AI SDK](https://sdk.vercel.ai/), Exif AI supports 13+ AI providers including OpenAI, Google Gemini, Anthropic Claude, Mistral, Ollama, Amazon Bedrock, Azure OpenAI, and more.
 
 ## Quick Start
+
+### Docker (Recommended for API Server)
+
+```bash
+# Pull and run the latest image
+docker pull ghcr.io/benklop/exif-ai:latest
+docker run -p 3000:3000 ghcr.io/benklop/exif-ai:latest
+
+# Or use Docker Compose
+curl -o docker-compose.yml https://raw.githubusercontent.com/benklop/exif-ai/main/docker-compose.yml
+docker-compose up -d
+```
 
 ### CLI Usage
 
@@ -289,26 +301,38 @@ with open('photo.jpg', 'rb') as f:
     print(response.json())
 ```
 
-#### Docker Usage
+#### Docker Deployment
 
-You can also run the server in a Docker container:
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "run", "server"]
-```
+**Quick Start with Pre-built Images:**
 
 ```bash
-# Build and run
-docker build -t exif-ai-server .
-docker run -p 3000:3000 -e EXIF_AI_PROVIDER=ollama exif-ai-server
+# Using GitHub Container Registry (recommended)
+docker pull ghcr.io/benklop/exif-ai:latest
+docker run -p 3000:3000 \
+  -e EXIF_AI_PROVIDER=ollama \
+  ghcr.io/benklop/exif-ai:latest
+
+# Using Docker Compose
+curl -o docker-compose.yml https://raw.githubusercontent.com/benklop/exif-ai/main/docker-compose.yml
+docker-compose up -d
 ```
+
+**Available Images:**
+- `ghcr.io/benklop/exif-ai:latest` - Latest stable release
+- `ghcr.io/benklop/exif-ai:main` - Latest development build
+- `ghcr.io/benklop/exif-ai:v*.*.*` - Specific version tags
+
+**Build from Source:**
+
+```bash
+# Clone and build
+git clone https://github.com/benklop/exif-ai.git
+cd exif-ai
+docker build -t exif-ai .
+docker run -p 3000:3000 exif-ai
+```
+
+For detailed Docker deployment instructions, see [DOCKER.md](DOCKER.md).
 
 ## API Design Benefits
 

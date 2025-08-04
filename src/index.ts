@@ -325,8 +325,7 @@ export async function execute({
     }
   } catch (error) {
     console.error("An error occurred:", error);
-  } finally {
-    // Ensure ExifTool session is closed properly
-    await exiftool.end();
   }
+  // Note: ExifTool session is kept alive for reuse across multiple operations
+  // Call exiftool.end() only when shutting down the entire application
 }
