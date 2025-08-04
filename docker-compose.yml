@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   exif-ai-server:
-    build: .
+    image: benklop/exif-ai:latest
     ports:
       - "3000:3000"
     environment:
