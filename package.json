@@ -76,6 +76,7 @@
     "@fluent/bundle": "^0.19.1",
     "@openrouter/ai-sdk-provider": "^0.7.3",
     "ai": "^4.3.19",
+    "dotenv": "^17.2.1",
     "exiftool-vendored": "^30.2.0",
     "file-type": "^21.0.0",
     "form-data": "^4.0.4",

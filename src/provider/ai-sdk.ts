@@ -54,7 +54,7 @@ async function sizeHandle(
 }
 
 // Get the appropriate AI SDK model based on the provider name
-function getModel(provider: string, model?: string): LanguageModel {
+export function getModel(provider: string, model?: string): LanguageModel {
   switch (provider.toLowerCase()) {
     case "openai": {
       const openaiProvider = createOpenAI({
@@ -208,10 +208,10 @@ function getProviderLimits(provider: string): {
   }
 }
 
-export async function getDescription({
+export async function getDescriptionWithUsage({
   buffer,
   model,
-  prompt = "Please describe this image.",
+  prompt = "Please describe this image. Provide clear, concise, and accurate descriptions. Your responses are directly embedded in the image, so do not include any additional irrelevant information or commentary.",
   provider = "openai", // Default provider
 }: {
   buffer: Buffer;
@@ -223,7 +223,10 @@ export async function getDescription({
     // Handle test providers
     if (provider === "test" || provider === "provider1") {
       // Return the prompt as the response for testing
-      return prompt;
+      return { 
+        text: prompt, 
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 } 
+      };
     }
 
     // Get provider-specific limits
@@ -255,17 +258,20 @@ export async function getDescription({
       ],
     });
 
-    return result.text || "";
+    return { 
+      text: result.text || "", 
+      usage: result.usage || null 
+    };
   } catch (error) {
     console.error("An error occurred while getting the description:", error);
     throw error; // Re-throw the error to be handled by the caller
   }
 }
 
-export async function getTags({
+export async function getTagsWithUsage({
   buffer,
   model,
-  prompt = "Please tag this image with relevant keywords. Output format: <tag1>, <tag2>, <tag3>, ...",
+  prompt = "Generate image tags. CRITICAL: Output ONLY a comma-separated list of keywords. NO explanations, NO descriptions, NO bullet points, NO formatting, NO additional text. Just keywords separated by commas.\n\nExample input: Photo of a red car on a city street\nCorrect output: red car, vehicle, street, urban, transportation\n\nExample input: Woman cooking in kitchen\nCorrect output: woman, cooking, kitchen, food, indoor\n\nNow analyze this image and provide ONLY the comma-separated tags:",
   provider = "openai", // Default provider
 }: {
   buffer: Buffer;
@@ -277,7 +283,10 @@ export async function getTags({
     // Handle test providers
     if (provider === "test" || provider === "provider1") {
       // Return the prompt as the response for testing
-      return prompt;
+      return { 
+        text: prompt, 
+        usage: { promptTokens: 8, completionTokens: 3, totalTokens: 11 } 
+      };
     }
 
     // Get provider-specific limits
@@ -309,7 +318,10 @@ export async function getTags({
       ],
     });
 
-    return result.text || "";
+    return { 
+      text: result.text || "", 
+      usage: result.usage || null 
+    };
   } catch (error) {
     console.error("An error occurred while getting the tags:", error);
     throw error; // Re-throw the error to be handled by the caller

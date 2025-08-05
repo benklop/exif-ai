@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 
+import { config } from "dotenv";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { parse } from "url";
 import { readFile, writeFile, unlink } from "fs/promises";
 import { randomUUID } from "crypto";
 import { join } from "path";
 import { tmpdir } from "os";
+
+// Load environment variables from .env.local if it exists
+try {
+  config({ path: ".env.local" });
+} catch (error) {
+  // .env.local is optional, continue without it
+}
 
 // Environment configuration
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -34,6 +42,120 @@ function sendError(res: ServerResponse, statusCode: number, message: string, err
     error: message,
     ...(VERBOSE && error ? { details: error.message || error } : {})
   });
+}
+
+// Health check function that tests provider connectivity
+async function checkProviderHealth(): Promise<{ status: string, provider: string, model: string, tasks: string[], error?: string }> {
+  const baseResponse = {
+    provider: PROVIDER,
+    model: MODEL || "default",
+    tasks: TASKS
+  };
+
+  try {
+    // For test provider, always return healthy
+    if (PROVIDER === "test") {
+      return { ...baseResponse, status: "healthy" };
+    }
+
+    // Test connectivity without generating text (to avoid costs)
+    switch (PROVIDER.toLowerCase()) {
+      case "google": {
+        // For Google, we can check if the API key is valid by making a simple request
+        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+          return { ...baseResponse, status: "unhealthy", error: "Google API key not found" };
+        }
+        
+        // Make a simple request to list models (cheaper than generation)
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          return { ...baseResponse, status: "healthy" };
+        } else {
+          return { ...baseResponse, status: "unhealthy", error: `Google API error: ${response.status} ${response.statusText}` };
+        }
+      }
+      
+      case "openai": {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          return { ...baseResponse, status: "unhealthy", error: "OpenAI API key not found" };
+        }
+        
+        // Check OpenAI models endpoint
+        const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com";
+        const response = await fetch(`${baseURL}/v1/models`, {
+          method: 'GET',
+          headers: { 
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json' 
+          }
+        });
+        
+        if (response.ok) {
+          return { ...baseResponse, status: "healthy" };
+        } else {
+          return { ...baseResponse, status: "unhealthy", error: `OpenAI API error: ${response.status} ${response.statusText}` };
+        }
+      }
+      
+      case "ollama": {
+        // For Ollama, check if the server is responding
+        const baseURL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+        const response = await fetch(`${baseURL}/api/tags`, {
+          method: 'GET'
+        });
+        
+        if (response.ok) {
+          return { ...baseResponse, status: "healthy" };
+        } else {
+          return { ...baseResponse, status: "unhealthy", error: `Ollama server error: ${response.status} ${response.statusText}` };
+        }
+      }
+      
+      case "anthropic": {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          return { ...baseResponse, status: "unhealthy", error: "Anthropic API key not found" };
+        }
+        
+        // Anthropic doesn't have a models endpoint, but we can validate the API key format
+        if (!apiKey.startsWith('sk-ant-')) {
+          return { ...baseResponse, status: "unhealthy", error: "Invalid Anthropic API key format" };
+        }
+        
+        return { ...baseResponse, status: "healthy" };
+      }
+      
+      default: {
+        // For other providers, try to create the model without calling it
+        try {
+          const { getModel } = await import("./provider/ai-sdk.js");
+          const model = getModel(PROVIDER, MODEL);
+          
+          // If we can create the model without error, consider it healthy
+          if (model) {
+            return { ...baseResponse, status: "healthy" };
+          } else {
+            return { ...baseResponse, status: "unhealthy", error: "Failed to create model instance" };
+          }
+        } catch (error: any) {
+          return { ...baseResponse, status: "unhealthy", error: `Provider initialization error: ${error.message}` };
+        }
+      }
+    }
+    
+  } catch (error: any) {
+    return { 
+      ...baseResponse, 
+      status: "unhealthy", 
+      error: error.message || "Unknown error connecting to provider" 
+    };
+  }
 }
 
 // Parse multipart form data (simple implementation for images)
@@ -104,17 +226,29 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   
   // Health check endpoint
   if (url.pathname === "/health" && req.method === "GET") {
-    sendResponse(res, 200, { 
-      status: "healthy",
-      provider: PROVIDER,
-      model: MODEL || "default",
-      tasks: TASKS
-    });
+    console.log(`[${new Date().toISOString()}] Health check request from ${req.socket.remoteAddress}`);
+    try {
+      const healthStatus = await checkProviderHealth();
+      const statusCode = healthStatus.status === "healthy" ? 200 : 503;
+      console.log(`[${new Date().toISOString()}] Health check result: ${healthStatus.status}`);
+      sendResponse(res, statusCode, healthStatus);
+    } catch (error: any) {
+      console.log(`[${new Date().toISOString()}] Health check failed:`, error.message);
+      sendResponse(res, 503, {
+        status: "unhealthy",
+        provider: PROVIDER,
+        model: MODEL || "default",
+        tasks: TASKS,
+        error: error.message || "Health check failed"
+      });
+    }
     return;
   }
   
   // Process image endpoint
   if (url.pathname === "/process" && req.method === "POST") {
+    console.log(`[${new Date().toISOString()}] Processing image request from ${req.socket.remoteAddress}`);
+    
     try {
       const contentType = req.headers["content-type"] || "";
       
@@ -143,23 +277,39 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         const requestDescriptionPrompt = fields.descriptionPrompt || DESCRIPTION_PROMPT;
         const requestTagPrompt = fields.tagPrompt || TAG_PROMPT;
         
+        console.log(`[${new Date().toISOString()}] Processing with:`, {
+          provider: requestProvider,
+          model: requestModel || "default",
+          tasks: requestTasks
+        });
+        
         // Import the AI functions
-        const { getDescription, getTags } = await import("./provider/ai-sdk.js");
+        const { getDescriptionWithUsage, getTagsWithUsage } = await import("./provider/ai-sdk.js");
         
         const imageBufferForAI = await readFile(tempFilePath);
         
         let description = "";
         let tags: string[] = [];
+        let rawTagsText = "";
+        let totalTokensUsed = 0;
+        let descriptionTokens = 0;
+        let tagsTokens = 0;
         
         // Process description if requested
         if (requestTasks.includes("description")) {
+          console.log(`[${new Date().toISOString()}] Generating description...`);
           try {
-            description = await getDescription({
+            const descResult = await getDescriptionWithUsage({
               buffer: imageBufferForAI,
               model: requestModel,
               prompt: requestDescriptionPrompt || "Describe this image in detail.",
               provider: requestProvider
-            }) || "";
+            });
+            description = descResult.text || "";
+            descriptionTokens = descResult.usage?.totalTokens || 0;
+            totalTokensUsed += descriptionTokens;
+            
+            console.log(`[${new Date().toISOString()}] Description generated (${description.length} chars, ${descriptionTokens} tokens)`);
           } catch (error) {
             console.error("Error generating description:", error);
           }
@@ -167,14 +317,45 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         
         // Process tags if requested
         if (requestTasks.includes("tag") || requestTasks.includes("tags")) {
+          console.log(`[${new Date().toISOString()}] Generating tags...`);
           try {
-            const tagsResult = await getTags({
+            const tagsResult = await getTagsWithUsage({
               buffer: imageBufferForAI,
               model: requestModel,
               prompt: requestTagPrompt || "Generate relevant tags for this image.",
               provider: requestProvider
             });
-            tags = Array.isArray(tagsResult) ? tagsResult : [tagsResult].filter(Boolean);
+            
+            const tagsText = tagsResult.text;
+            rawTagsText = tagsText; // Store for output
+            tagsTokens = tagsResult.usage?.totalTokens || 0;
+            totalTokensUsed += tagsTokens;
+            
+            // Parse tags from string response and clean them
+            // Split by common delimiters (commas, newlines, semicolons, etc.)
+            let rawTags = tagsText.split(/[,\n;|]/).map((tag: string) => tag.trim());
+            
+            // Clean each tag - remove formatting and keep only alphanumeric + spaces
+            tags = rawTags
+              .map((tag: string) => {
+                // Remove markdown formatting, brackets, quotes, etc.
+                let cleaned = tag
+                  .replace(/^[*\-•\d\.\)\]\}\>"\'\`]+\s*/, '') // Remove prefixes like *, -, •, numbers, brackets, quotes
+                  .replace(/[*"\'\`\[\{\<\]\}\>]+$/, '') // Remove suffixes like quotes, brackets
+                  .replace(/[^\w\s]/g, ' ') // Replace all non-alphanumeric (except spaces) with spaces
+                  .replace(/\s+/g, ' ') // Collapse multiple spaces into one
+                  .trim(); // Remove leading/trailing whitespace
+                
+                return cleaned;
+              })
+              .filter((tag: string) => {
+                // Filter out empty tags, overly long ones, and tags with more than 2 words
+                const wordCount = tag.split(' ').length;
+                return tag.length > 0 && tag.length <= 50 && wordCount <= 2;
+              })
+              .slice(0, 20); // Limit to first 20 tags
+            
+            console.log(`[${new Date().toISOString()}] Tags generated: ${tags.length} tags (${tagsTokens} tokens)`);
           } catch (error) {
             console.error("Error generating tags:", error);
           }
@@ -184,10 +365,20 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
           success: true,
           description,
           tags,
+          rawTagsText, // Include raw tags text for debugging
           provider: requestProvider,
           model: requestModel || "default",
-          tasks: requestTasks
+          tasks: requestTasks,
+          ...(totalTokensUsed > 0 && { 
+            tokenUsage: {
+              description: descriptionTokens,
+              tags: tagsTokens,
+              total: totalTokensUsed
+            }
+          })
         });
+        
+        console.log(`[${new Date().toISOString()}] Request completed successfully (Total tokens: ${totalTokensUsed})`);
         
       } finally {
         // Clean up temporary file
