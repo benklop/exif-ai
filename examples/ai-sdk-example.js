@@ -79,7 +79,7 @@ async function main() {
       buffer,
       model,
       prompt:
-        "Please generate relevant tags for this image. Output format: <tag1>, <tag2>, <tag3>, ...",
+        "Output only tags separated by commas. Example: mountain, sky, night",
       provider,
     });
 

@@ -131,7 +131,7 @@ await new ExifAI("photo.jpg")
   .model("gemini-1.5-pro")
   .tasks("description", "tag")
   .descriptionPrompt("Describe this landscape photo.")
-  .tagPrompt("Generate relevant tags.")
+  .tagPrompt("Output only tags separated by commas. Example: mountain, sky, night")
   .preview() // Don't write to file
   .verbose()
   .run();
@@ -148,7 +148,7 @@ await processImageAdvanced({
     provider: "anthropic",
     model: "claude-3-5-sonnet-20241022",
     descriptionPrompt: "Professional image description",
-    tagPrompt: "Generate SEO-friendly tags"
+    tagPrompt: "Output only tags separated by commas. Example: mountain, sky, night"
   },
   exif: {
     descriptionTags: ["XPComment", "Description"],

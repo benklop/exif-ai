@@ -54,6 +54,7 @@ function formatTags(tags: string | string[] | undefined): string[] {
     });
   }
 
+  // Clean the tags text - remove basic markup
   const cleanedTags = tags
     .replaceAll(/tag\d+/g, "")
     .replaceAll(/[[\].{}<>/*'"()。]/g, "");

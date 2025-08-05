@@ -41,7 +41,7 @@ async function demoAPI() {
     formData.append('provider', provider);
     formData.append('tasks', 'description,tag');
     formData.append('descriptionPrompt', 'Provide a detailed description of this image.');
-    formData.append('tagPrompt', 'Generate 5-10 relevant tags for this image.');
+    formData.append('tagPrompt', 'Output only tags separated by commas. Example: mountain, sky, night');
 
     const startTime = Date.now();
     const response = await fetch(`${API_URL}/process`, {
