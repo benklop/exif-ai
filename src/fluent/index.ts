@@ -28,7 +28,7 @@ concurrency = The numbers of files to process concurrently in watch mode.
 face-group-ids = List of face group IDs to use for face recognition.
 repeat = The number of times to repeat the task if the AI-generated result is deemed unacceptable. This parameter helps ensure the quality of the output by allowing multiple attempts. Default value is 0. An AI-generated description is considered acceptable if it has more than 10 characters and is not in markdown format. AI-generated tags are considered acceptable if there are more than 1 tag and they are not in markdown format. Using this parameter will consume more tokens, which may incur additional costs. Use it at your own risk.
 description-prompt-input = Describe image. Be consise, 
-tag-prompt-input = Output only the most relevant one or two word tags separated by commas. No text before or after. Example: mountain, sky, night, stars
+tag-prompt-input = Output only the most relevant tags, up to 16, consisting of one or two words each. The tags should be separated by commas No text before or after. Example: mountain, sky, night, stars
 `),
 );
 

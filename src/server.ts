@@ -322,7 +322,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
             const tagsResult = await getTagsWithUsage({
               buffer: imageBufferForAI,
               model: requestModel,
-              prompt: requestTagPrompt || "Output only the most relevant one or two word tags separated by commas. No text before or after. Example: mountain, sky, night, stars",
+              prompt: requestTagPrompt || "Output only the most relevant tags, up to 16, consisting of one or two words each. The tags should be separated by commas. No text before or after. Example: mountain, sky, night, stars, meteor shower",
               provider: requestProvider
             });
             
